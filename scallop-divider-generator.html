@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scallop &amp; Wave Divider Generator</title>
+<style>
+  :root{
+    --ink:#26261f; --line:#e4e0d6; --paper:#faf7f0; --panel:#ffffff;
+    --accent:#2f6b3f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink);
+  }
+  header{
+    padding:18px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;
+  }
+  header h1{font-size:16px; margin:0; font-weight:700; letter-spacing:.2px;}
+  header p{margin:2px 0 0; font-size:12.5px; color:#77756a;}
+  .layout{display:grid; grid-template-columns:320px 1fr; gap:0; min-height:calc(100vh - 62px);}
+  aside{
+    border-right:1px solid var(--line); padding:16px; overflow-y:auto; max-height:calc(100vh - 62px);
+    background:var(--panel);
+  }
+  main{padding:20px 24px; display:flex; flex-direction:column; gap:14px;}
+
+  .tabs{display:flex; gap:6px; margin-bottom:14px; background:#f1efe6; padding:4px; border-radius:8px;}
+  .tabs button{
+    flex:1; padding:8px 10px; border:none; background:transparent; border-radius:6px; cursor:pointer;
+    font-size:13px; font-weight:600; color:#6b6a5f;
+  }
+  .tabs button.active{background:var(--panel); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+  .group{margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line);}
+  .group:last-child{border-bottom:none;}
+  .group h3{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#8a8879; margin:0 0 10px;}
+
+  .field{margin-bottom:12px;}
+  .field-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
+  .field label{font-size:12.5px; font-weight:600;}
+  .field .val{font-size:12px; color:#77756a; font-variant-numeric:tabular-nums;}
+  input[type=range]{width:100%; accent-color:var(--accent);}
+  .hint{font-size:11px; color:#8a8879; margin-top:2px;}
+
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+
+  select, input[type=number], input[type=text]{
+    width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; background:#fff;
+  }
+  .swatch-row{display:flex; align-items:center; gap:8px;}
+  input[type=color]{width:38px; height:30px; border:1px solid var(--line); border-radius:6px; padding:2px; background:#fff; cursor:pointer;}
+
+  .btn{
+    padding:8px 12px; border-radius:7px; border:1px solid var(--line); background:#fff; cursor:pointer;
+    font-size:12.5px; font-weight:600; color:var(--ink);
+  }
+  .btn:hover{background:#f4f2ea;}
+  .btn.primary{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .btn.primary:hover{opacity:.9;}
+  .btn.block{width:100%;}
+  .btn-row{display:flex; gap:8px;}
+
+  .layer-card{border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; background:#fcfbf7;}
+  .layer-card .field-row label{font-size:11.5px;}
+  .layer-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .layer-head span{font-size:12px; font-weight:700;}
+  .layer-head button{background:none; border:none; color:#b4483f; font-size:11px; cursor:pointer; font-weight:600;}
+
+  .preview-wrap{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff;
+  }
+  .canvas-frame{position:relative;}
+  .canvas-frame .top-block, .canvas-frame .bottom-block{width:100%; height:110px; display:block;}
+  .canvas-frame svg{display:block; width:100%; height:auto; vertical-align:top; margin:-2px 0; position:relative;}
+
+  .toolbar{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;}
+  .toolbar .btn-row{flex-wrap:wrap;}
+
+  textarea#codeOut{
+    width:100%; height:110px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+    padding:10px; border:1px solid var(--line); border-radius:8px; resize:vertical; background:#fcfbf7; color:#444;
+  }
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:8px 14px; border-radius:8px; font-size:12.5px; opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .toast.show{opacity:1;}
+  .segmented{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden;}
+  .segmented button{flex:1; padding:6px 8px; border:none; background:#fff; font-size:12px; cursor:pointer; font-weight:600; color:#6b6a5f;}
+  .segmented button.active{background:var(--ink); color:#fff;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Scallop &amp; Wave Divider Generator</h1>
+    <p>Structured scallops and fluid waves for section dividers — dial it in, export SVG.</p>
+  </div>
+  <div class="btn-row">
+    <button class="btn" id="randomizeBtn">🎲 Randomize</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="tabs">
+      <button id="tabScallop" class="active">Scallop</button>
+      <button id="tabWave">Wave</button>
+    </div>
+
+    <div class="group">
+      <h3>Canvas</h3>
+      <div class="row2">
+        <div class="field">
+          <div class="field-row"><label>Width</label><span class="val" id="widthVal">1440</span></div>
+          <input type="range" id="width" min="320" max="2400" step="1" value="1440">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Height</label><span class="val" id="heightVal">406</span></div>
+          <input type="range" id="height" min="60" max="900" step="1" value="406">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <div class="field-row"><label>Amplitude</label><span class="val" id="ampVal">55</span></div>
+          <input type="range" id="amplitude" min="8" max="300" step="1" value="55">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Bump count</label><span class="val" id="countVal">12</span></div>
+          <input type="range" id="count" min="2" max="40" step="1" value="12">
+        </div>
+      </div>
+      <div class="field">
+        <label style="display:block;margin-bottom:6px;">Divider sits on</label>
+        <div class="segmented">
+          <button id="edgeTop" class="active">Top edge</button>
+          <button id="edgeBottom">Bottom edge</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group" id="scallopControls">
+      <h3>Structure</h3>
+      <div class="field">
+        <div class="field-row"><label>Cusp ↔ Fluid</label><span class="val" id="structureVal">50</span></div>
+        <input type="range" id="structure" min="0" max="100" step="1" value="50">
+        <div class="hint">Low = separated / pointed cusps &nbsp;·&nbsp; mid = classic touching scallop &nbsp;·&nbsp; high = smooth merged wave</div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <div class="field-row"><label>Height variance</label><span class="val" id="heightVarVal">0</span></div>
+          <input type="range" id="heightVar" min="0" max="100" step="1" value="0">
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Width variance</label><span class="val" id="widthVarVal">0</span></div>
+          <input type="range" id="widthVar" min="0" max="100" step="1" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="group" id="waveControls" style="display:none;">
+      <h3>Structure</h3>
+      <div class="field">
+        <div class="field-row"><label>Skew (asymmetry)</label><span class="val" id="skewVal">0</span></div>
+        <input type="range" id="skew" min="-100" max="100" step="1" value="0">
+      </div>
+      <div class="field">
+        <div class="field-row"><label>Peak roundness</label><span class="val" id="smoothVal">70</span></div>
+        <input type="range" id="smooth" min="0" max="100" step="1" value="70">
+      </div>
+      <div class="field">
+        <div class="field-row"><label>Height variance</label><span class="val" id="waveHeightVarVal">0</span></div>
+        <input type="range" id="waveHeightVar" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="field">
+        <label style="display:block;margin-bottom:6px;">Layer style</label>
+        <div class="segmented">
+          <button id="styleFill" class="active">Filled</button>
+          <button id="styleLine">Line</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group" id="layersGroup" style="display:none;">
+      <h3>Layers</h3>
+      <div id="layersList"></div>
+      <button class="btn block" id="addLayerBtn">+ Add layer</button>
+    </div>
+
+    <div class="group">
+      <h3>Color</h3>
+      <div class="field">
+        <label style="display:block;margin-bottom:6px;">Shape fill</label>
+        <div class="swatch-row">
+          <input type="color" id="fillColor" value="#2f6b3f">
+          <input type="text" id="fillColorHex" value="#2f6b3f">
+        </div>
+      </div>
+      <div class="field">
+        <label style="display:block;margin-bottom:6px;">Page bg (preview)</label>
+        <input type="color" id="pageColor" value="#faf3e6">
+        <div class="hint">The section side of the preview always matches the shape fill color above, so the divider connects seamlessly.</div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Seed</h3>
+      <div class="row2">
+        <div class="field">
+          <input type="number" id="seedInput" value="7">
+        </div>
+        <button class="btn" id="rerollBtn">Reroll</button>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="preview-wrap">
+      <div class="canvas-frame" id="canvasFrame">
+        <div class="top-block" id="topBlock"></div>
+        <svg id="dividerSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="bottom-block" id="bottomBlock"></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="btn-row">
+        <button class="btn primary" id="downloadBtn">⬇ Download SVG</button>
+        <button class="btn" id="copyBtn">Copy SVG code</button>
+        <button class="btn" id="downloadPngBtn">Download PNG</button>
+      </div>
+      <div class="hint">Exports a transparent SVG containing just the shape — drop it into any page as a divider.</div>
+    </div>
+
+    <textarea id="codeOut" readonly spellcheck="false"></textarea>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  const state = {
+    mode: "scallop", // scallop | wave
+    edge: "top", // top | bottom
+    waveStyle: "fill", // fill | line
+    width: 1440,
+    height: 406,
+    amplitude: 55,
+    count: 12,
+    structure: 50, // 0-100
+    heightVar: 0,
+    widthVar: 0,
+    skew: 0,
+    smooth: 70,
+    waveHeightVar: 0,
+    fillColor: "#2f6b3f",
+    pageColor: "#faf3e6",
+    seed: 7,
+    layers: [
+      { color: "#2f6b3f", opacity: 1, ampScale: 1, yOffset: 0, seedOffset: 0, strokeWidth: 6 }
+    ]
+  };
+
+  // ---------- RNG ----------
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- path builders ----------
+  function buildScallopPath(o){
+    const rnd = mulberry32(o.seed|0);
+    const raw = [];
+    for(let i=0;i<o.count;i++) raw.push(1 + (rnd()*2-1)*(o.widthVar/100));
+    const sum = raw.reduce((a,b)=>a+b,0);
+    const slotW = raw.map(r => o.width*r/sum);
+    const xs=[0];
+    slotW.forEach(w=>xs.push(xs[xs.length-1]+w));
+    const topMargin = 6;
+    const baseline = o.amplitude + topMargin;
+    let d = `M0,${baseline.toFixed(2)} `;
+    const structure = o.structure/100;
+    for(let i=0;i<o.count;i++){
+      const w = slotW[i];
+      const cx = xs[i] + w/2;
+      const halfslot = w/2;
+      const rx = halfslot * (0.55 + structure*0.9);
+      const ry = o.amplitude * (1 + (rnd()*2-1)*(o.heightVar/100));
+      const xLeft = cx-rx, xRight = cx+rx;
+      if (xLeft > xs[i]+0.01) d += `L ${xLeft.toFixed(2)},${baseline.toFixed(2)} `;
+      d += `A ${rx.toFixed(2)},${ry.toFixed(2)} 0 0 1 ${xRight.toFixed(2)},${baseline.toFixed(2)} `;
+    }
+    const H = Math.max(o.canvasHeight, baseline + 4);
+    d += `L ${o.width.toFixed(2)},${H.toFixed(2)} L 0,${H.toFixed(2)} Z`;
+    return { d, height: H };
+  }
+
+  function buildWavePath(o){
+    const rnd = mulberry32(o.seed|0);
+    const w = o.width/o.count;
+    const topMargin = 6;
+    const baseline = o.amplitude + topMargin;
+    let peakFrac = 0.5 + (o.skew/100)*0.35;
+    peakFrac = Math.min(0.85, Math.max(0.15, peakFrac));
+    const smooth = o.smooth/100;
+    let d = `M0,${baseline.toFixed(2)} `;
+    let x = 0;
+    for(let i=0;i<o.count;i++){
+      const amp = o.amplitude * (1 + (rnd()*2-1)*(o.heightVar/100));
+      const peakX = x + w*peakFrac;
+      const h1 = peakX-x, h2 = (x+w)-peakX;
+      const top = baseline - amp;
+      const cp1x = x + h1*0.66;
+      const cp2x = peakX - h1*0.66*smooth;
+      const cp3x = peakX + h2*0.66*smooth;
+      const cp4x = (x+w) - h2*0.66;
+      d += `C ${cp1x.toFixed(2)},${baseline.toFixed(2)} ${cp2x.toFixed(2)},${top.toFixed(2)} ${peakX.toFixed(2)},${top.toFixed(2)} `;
+      d += `C ${cp3x.toFixed(2)},${top.toFixed(2)} ${cp4x.toFixed(2)},${baseline.toFixed(2)} ${(x+w).toFixed(2)},${baseline.toFixed(2)} `;
+      x += w;
+    }
+    const H = Math.max(o.canvasHeight, baseline + 4);
+    const closedD = d + `L ${o.width.toFixed(2)},${H.toFixed(2)} L 0,${H.toFixed(2)} Z`;
+    return { d: closedD, height: H, baseline, top: baseline - o.amplitude };
+  }
+
+  function waveLinePath(o){
+    // open path (no close) for stroke-only layered look
+    const built = buildWavePath(o);
+    return built;
+  }
+
+  // ---------- render ----------
+  const svg = document.getElementById("dividerSvg");
+  const canvasFrame = document.getElementById("canvasFrame");
+  const topBlock = document.getElementById("topBlock");
+  const bottomBlock = document.getElementById("bottomBlock");
+  const codeOut = document.getElementById("codeOut");
+
+  function currentGeometry(){
+    return { height: state.height };
+  }
+
+  function svgParts(){
+    const H = Math.ceil(state.height);
+    const W = state.width;
+    let inner = "";
+
+    if (state.mode === "scallop"){
+      const g = buildScallopPath({
+        width: W, amplitude: state.amplitude, count: state.count,
+        structure: state.structure, heightVar: state.heightVar, widthVar: state.widthVar,
+        seed: state.seed, canvasHeight: H
+      });
+      inner += `<path d="${g.d}" fill="${state.fillColor}" fill-rule="nonzero"/>`;
+    } else {
+      state.layers.forEach(L=>{
+        const g = buildWavePath({
+          width: W, amplitude: state.amplitude*L.ampScale, count: state.count,
+          skew: state.skew, smooth: state.smooth, heightVar: state.waveHeightVar,
+          seed: state.seed + L.seedOffset, canvasHeight: H
+        });
+        const yOff = L.yOffset;
+        if (state.waveStyle === "fill"){
+          inner += `<path d="${g.d}" fill="${L.color}" fill-opacity="${L.opacity}" transform="translate(0,${yOff})"/>`;
+        } else {
+          // strip the closing rectangle lines for a pure line look
+          const openD = g.d.replace(/ L [-\d.]+,[-\d.]+ L [-\d.]+,[-\d.]+ Z$/, "");
+          inner += `<path d="${openD}" fill="none" stroke="${L.color}" stroke-opacity="${L.opacity}" stroke-width="${L.strokeWidth}" stroke-linecap="round" transform="translate(0,${yOff})"/>`;
+        }
+      });
+    }
+
+    const flipTransform = state.edge === "bottom" ? ` transform="translate(0,${H}) scale(1,-1)"` : "";
+    return { W, H, inner, flipTransform };
+  }
+
+  function fullSvgString(){
+    const { W, H, inner, flipTransform } = svgParts();
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="none">
+  <g${flipTransform}>
+    ${inner}
+  </g>
+</svg>`;
+  }
+
+  function render(){
+    document.getElementById("scallopControls").style.display = state.mode==="scallop" ? "" : "none";
+    document.getElementById("waveControls").style.display = state.mode==="wave" ? "" : "none";
+    document.getElementById("layersGroup").style.display = state.mode==="wave" ? "" : "none";
+
+    // the canvas-frame's own background shows through the SVG's transparent
+    // area, so it must always be the "page" color, on both sides of the flip.
+    canvasFrame.style.background = state.pageColor;
+    topBlock.style.background = state.edge === "top" ? state.pageColor : state.fillColor;
+    bottomBlock.style.background = state.edge === "top" ? state.fillColor : state.pageColor;
+
+    const { W, H, inner, flipTransform } = svgParts();
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.innerHTML = `<g${flipTransform}>${inner}</g>`;
+
+    codeOut.value = fullSvgString();
+  }
+
+  // ---------- layers UI ----------
+  function renderLayers(){
+    const list = document.getElementById("layersList");
+    list.innerHTML = "";
+    state.layers.forEach((L, idx)=>{
+      const card = document.createElement("div");
+      card.className = "layer-card";
+      card.innerHTML = `
+        <div class="layer-head">
+          <span>Layer ${idx+1}</span>
+          ${state.layers.length>1 ? `<button data-idx="${idx}" class="removeLayer">Remove</button>` : ""}
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label style="display:block;margin-bottom:6px;">Color</label>
+            <input type="color" class="layerColor" data-idx="${idx}" value="${L.color}">
+          </div>
+          <div class="field">
+            <div class="field-row"><label>Opacity</label><span class="val">${L.opacity.toFixed(2)}</span></div>
+            <input type="range" class="layerOpacity" data-idx="${idx}" min="0" max="1" step="0.05" value="${L.opacity}">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <div class="field-row"><label>Amplitude scale</label><span class="val">${L.ampScale.toFixed(2)}</span></div>
+            <input type="range" class="layerAmp" data-idx="${idx}" min="0.2" max="1.6" step="0.05" value="${L.ampScale}">
+          </div>
+          <div class="field">
+            <div class="field-row"><label>Y offset</label><span class="val">${L.yOffset}</span></div>
+            <input type="range" class="layerOffset" data-idx="${idx}" min="-40" max="40" step="1" value="${L.yOffset}">
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll(".removeLayer").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        const i = +e.target.dataset.idx;
+        state.layers.splice(i,1);
+        renderLayers(); render();
+      });
+    });
+    list.querySelectorAll(".layerColor").forEach(el=>{
+      el.addEventListener("input", e=>{ state.layers[+e.target.dataset.idx].color = e.target.value; render(); });
+    });
+    list.querySelectorAll(".layerOpacity").forEach(el=>{
+      el.addEventListener("input", e=>{ state.layers[+e.target.dataset.idx].opacity = +e.target.value; renderLayers(); render(); });
+    });
+    list.querySelectorAll(".layerAmp").forEach(el=>{
+      el.addEventListener("input", e=>{ state.layers[+e.target.dataset.idx].ampScale = +e.target.value; renderLayers(); render(); });
+    });
+    list.querySelectorAll(".layerOffset").forEach(el=>{
+      el.addEventListener("input", e=>{ state.layers[+e.target.dataset.idx].yOffset = +e.target.value; renderLayers(); render(); });
+    });
+  }
+
+  document.getElementById("addLayerBtn").addEventListener("click", ()=>{
+    if (state.layers.length >= 4) return;
+    const n = state.layers.length;
+    const palette = ["#2a2ea8","#c9c2ef","#d99a4e","#e86a5c"];
+    state.layers.push({
+      color: palette[n % palette.length], opacity: 0.9 - n*0.1,
+      ampScale: Math.max(0.3, 1 - n*0.25), yOffset: n*14, seedOffset: n*11, strokeWidth: 6
+    });
+    renderLayers(); render();
+  });
+
+  // ---------- wire simple controls ----------
+  function bindRange(id, key, valId, fmt){
+    const el = document.getElementById(id);
+    const out = document.getElementById(valId);
+    el.addEventListener("input", ()=>{
+      state[key] = +el.value;
+      if (out) out.textContent = fmt ? fmt(state[key]) : state[key];
+      render();
+    });
+  }
+  bindRange("width","width","widthVal");
+  bindRange("height","height","heightVal");
+  bindRange("amplitude","amplitude","ampVal");
+  bindRange("count","count","countVal");
+  bindRange("structure","structure","structureVal");
+  bindRange("heightVar","heightVar","heightVarVal");
+  bindRange("widthVar","widthVar","widthVarVal");
+  bindRange("skew","skew","skewVal");
+  bindRange("smooth","smooth","smoothVal");
+  bindRange("waveHeightVar","waveHeightVar","waveHeightVarVal");
+
+  document.getElementById("tabScallop").addEventListener("click", ()=>{
+    state.mode = "scallop";
+    document.getElementById("tabScallop").classList.add("active");
+    document.getElementById("tabWave").classList.remove("active");
+    render();
+  });
+  document.getElementById("tabWave").addEventListener("click", ()=>{
+    state.mode = "wave";
+    document.getElementById("tabWave").classList.add("active");
+    document.getElementById("tabScallop").classList.remove("active");
+    renderLayers();
+    render();
+  });
+
+  document.getElementById("edgeTop").addEventListener("click", ()=>{
+    state.edge = "top";
+    document.getElementById("edgeTop").classList.add("active");
+    document.getElementById("edgeBottom").classList.remove("active");
+    render();
+  });
+  document.getElementById("edgeBottom").addEventListener("click", ()=>{
+    state.edge = "bottom";
+    document.getElementById("edgeBottom").classList.add("active");
+    document.getElementById("edgeTop").classList.remove("active");
+    render();
+  });
+
+  document.getElementById("styleFill").addEventListener("click", ()=>{
+    state.waveStyle = "fill";
+    document.getElementById("styleFill").classList.add("active");
+    document.getElementById("styleLine").classList.remove("active");
+    render();
+  });
+  document.getElementById("styleLine").addEventListener("click", ()=>{
+    state.waveStyle = "line";
+    document.getElementById("styleLine").classList.add("active");
+    document.getElementById("styleFill").classList.remove("active");
+    render();
+  });
+
+  const fillColor = document.getElementById("fillColor");
+  const fillColorHex = document.getElementById("fillColorHex");
+  fillColor.addEventListener("input", ()=>{
+    state.fillColor = fillColor.value;
+    fillColorHex.value = fillColor.value;
+    state.layers[0].color = fillColor.value;
+    render();
+  });
+  fillColorHex.addEventListener("change", ()=>{
+    if (/^#[0-9a-fA-F]{6}$/.test(fillColorHex.value)){
+      state.fillColor = fillColorHex.value;
+      fillColor.value = fillColorHex.value;
+      state.layers[0].color = fillColorHex.value;
+      render();
+    }
+  });
+  document.getElementById("pageColor").addEventListener("input", (e)=>{ state.pageColor = e.target.value; render(); });
+
+  const seedInput = document.getElementById("seedInput");
+  seedInput.addEventListener("change", ()=>{ state.seed = +seedInput.value || 0; render(); });
+  document.getElementById("rerollBtn").addEventListener("click", ()=>{
+    state.seed = Math.floor(Math.random()*100000);
+    seedInput.value = state.seed;
+    render();
+  });
+  document.getElementById("randomizeBtn").addEventListener("click", ()=>{
+    state.seed = Math.floor(Math.random()*100000);
+    seedInput.value = state.seed;
+    if (state.mode === "scallop"){
+      state.structure = Math.floor(Math.random()*100);
+      state.heightVar = Math.floor(Math.random()*60);
+      state.widthVar = Math.floor(Math.random()*40);
+      document.getElementById("structure").value = state.structure;
+      document.getElementById("heightVar").value = state.heightVar;
+      document.getElementById("widthVar").value = state.widthVar;
+      document.getElementById("structureVal").textContent = state.structure;
+      document.getElementById("heightVarVal").textContent = state.heightVar;
+      document.getElementById("widthVarVal").textContent = state.widthVar;
+    } else {
+      state.skew = Math.floor(Math.random()*160-80);
+      state.smooth = 40+Math.floor(Math.random()*60);
+      document.getElementById("skew").value = state.skew;
+      document.getElementById("smooth").value = state.smooth;
+      document.getElementById("skewVal").textContent = state.skew;
+      document.getElementById("smoothVal").textContent = state.smooth;
+    }
+    render();
+  });
+
+  // ---------- export ----------
+  function toast(msg){
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"), 1600);
+  }
+
+  document.getElementById("downloadBtn").addEventListener("click", ()=>{
+    const markup = fullSvgString();
+    const blob = new Blob([markup], {type:"image/svg+xml"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${state.mode}-divider.svg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("SVG downloaded");
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", ()=>{
+    const markup = fullSvgString();
+    const done = ()=>toast("SVG code copied");
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(markup).then(done).catch(()=>{
+        codeOut.select(); document.execCommand("copy"); done();
+      });
+    } else {
+      codeOut.select(); document.execCommand("copy"); done();
+    }
+  });
+
+  document.getElementById("downloadPngBtn").addEventListener("click", ()=>{
+    const markup = fullSvgString();
+    const svgBlob = new Blob([markup], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = function(){
+      const geo = currentGeometry();
+      const canvas = document.createElement("canvas");
+      canvas.width = state.width;
+      canvas.height = Math.ceil(geo.height);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob=>{
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${state.mode}-divider.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast("PNG downloaded");
+      });
+    };
+    img.src = url;
+  });
+
+  // ---------- init ----------
+  renderLayers();
+  render();
+})();
+</script>
+</body>
+</html>
